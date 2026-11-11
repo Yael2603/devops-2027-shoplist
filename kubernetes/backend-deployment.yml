@@ -1,46 +1,49 @@
-# backend-deployment.yml - the image we built, with passwords from the Secret
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
   namespace: shoplist
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: ____                     # the backend label
+      app: backend
   template:
     metadata:
       labels:
-        app: ____                   # exactly the same label
+        app: backend
     spec:
       containers:
         - name: backend
-          image: ____               # the image we built in step 1, including the tag
-          imagePullPolicy: ____     # do not download: the image is already on this computer
+          image: shoplist-backend:local
+          imagePullPolicy: Never
           env:
             - name: DB_HOST
-              value: ____           # name of the postgres Service. Not a secret, so written directly
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
             - name: DB_NAME
               valueFrom:
                 secretKeyRef:
-                  name: ____        # name of the Secret
-                  key: ____         # which Secret key holds the database name?
+                  name: postgres-secret
+                  key: POSTGRES_DB
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: ____
-                  key: ____         # which key holds the user?
+                  name: postgres-secret
+                  key: POSTGRES_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: ____
-                  key: ____         # which key holds the password?
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
           ports:
-            - containerPort: ____   # Flask port
+            - containerPort: 5000
           readinessProbe:
             httpGet:
-              path: ____            # the endpoint that answers "I am ready"
-              port: ____
+              path: /health
+              port: 5000
             initialDelaySeconds: 5
             periodSeconds: 10

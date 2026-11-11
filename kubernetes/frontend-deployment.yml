@@ -9,3 +9,26 @@
 #   [ ] no env, no Secret, no readinessProbe
 #
 # Before apply: kubectl apply --dry-run=server -f kubernetes/frontend-deployment.yml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: shoplist
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: shoplist-frontend:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+          

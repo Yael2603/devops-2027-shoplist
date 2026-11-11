@@ -1,7 +1,7 @@
 # postgres-deployment.yml - keeps one postgres pod running
 # Uses three other files by name: the Secret, the ConfigMap and the PVC
 apiVersion: apps/v1
-kind: ____                          # which resource keeps pods running?
+kind: Deployment                          # which resource keeps pods running?
 metadata:
   name: postgres
   namespace: shoplist
@@ -9,34 +9,34 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ____                     # the label this Deployment looks for
+      app: postgres                     # the label this Deployment looks for
   template:
     metadata:
       labels:
-        app: ____                   # the label it puts on its pods. Must match the line above
+        app: postgres                   # the label it puts on its pods. Must match the line above
     spec:
       containers:
         - name: postgres
-          image: ____               # same image as in Compose: version 15, alpine
+          image: postgres:15-alpine               # same image as in Compose: version 15, alpine
           envFrom:
             - secretRef:
-                name: ____          # name of the Secret (postgres-secret.yml)
+                name: postgres-secret          # name of the Secret (postgres-secret.yml)
           ports:
-            - containerPort: ____   # postgres port
+            - containerPort: 5432   # postgres port
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "____", "-d", "____"]   # user and database from the Secret, plain text
+              command: ["pg_isready", "-U", "shopuser", "-d", "shoplist"]   # user and database from the Secret, plain text
             initialDelaySeconds: 5
             periodSeconds: 10
           volumeMounts:
-            - name: ____            # must match the storage volume name below
+            - name: postgres-data            # must match the storage volume name below
               mountPath: /var/lib/postgresql/data
-            - name: ____            # must match the init.sql volume name below
+            - name: postgres-init            # must match the init.sql volume name below
               mountPath: /docker-entrypoint-initdb.d
       volumes:
         - name: postgres-data
           persistentVolumeClaim:
-            claimName: ____         # name of the PVC (postgres-pvc.yml)
+            claimName: postgres-pvc         # name of the PVC (postgres-pvc.yml)
         - name: postgres-init
           configMap:
-            name: ____              # name of the ConfigMap (postgres-configmap.yml)
+            name: postgres-init              # name of the ConfigMap (postgres-configmap.yml)

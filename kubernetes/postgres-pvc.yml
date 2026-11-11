@@ -1,12 +1,12 @@
 # postgres-pvc.yml - request for persistent storage. Products survive when the pod is deleted
 apiVersion: v1
-kind: ____                  # which resource requests persistent storage? (three words, no spaces)
+kind: PersistentVolumeClaim                  # which resource requests persistent storage? (three words, no spaces)
 metadata:
   name: postgres-pvc        # postgres-deployment requests the storage by this exact name
   namespace: shoplist
 spec:
   accessModes:
-    - ____                  # only one node writes at a time
+    - ReadWriteOnce                  # only one node writes at a time
   resources:
     requests:
-      storage: ____         # how much space? one gigabyte
+      storage: 1Gi         # how much space? one gigabyte

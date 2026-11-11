@@ -1,12 +1,12 @@
 # postgres-service.yml - a stable address for postgres
 apiVersion: v1
-kind: ____                  # which resource gives a stable address?
+kind: Service                  # which resource gives a stable address?
 metadata:
-  name: ____                # the backend uses this name in DB_HOST. The name is the address
+  name: postgres                # the backend uses this name in DB_HOST. The name is the address
   namespace: shoplist
 spec:
   selector:
-    app: ____               # label of the postgres pods
+    app: postgres               # label of the postgres pods
   ports:
-    - port: ____            # Service port
-      targetPort: ____      # container port
+    - port: 5432            # Service port
+      targetPort: 5432      # container port
