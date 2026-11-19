@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stats
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.stats.replicas }}
+  selector:
+    matchLabels:
+      app: stats
+  template:
+    metadata:
+      labels:
+        app: stats
+    spec:
+      containers:
+        - name: stats
+          image: "{{ .Values.stats.image.repository }}:{{ .Values.stats.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: BACKEND_URL
+              value: {{ .Values.stats.backendUrl | quote }}
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10

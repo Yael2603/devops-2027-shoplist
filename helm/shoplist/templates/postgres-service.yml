@@ -1,0 +1,12 @@
+# postgres-service.yml - a stable address for postgres
+apiVersion: v1
+kind: Service                  # which resource gives a stable address?
+metadata:
+  name: postgres                # the backend uses this name in DB_HOST. The name is the address
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: postgres               # label of the postgres pods
+  ports:
+    - port: 5432            # Service port
+      targetPort: 5432      # container port

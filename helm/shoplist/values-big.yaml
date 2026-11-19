@@ -1,0 +1,5 @@
+backend:
+  replicas: 3
+
+stats:
+  replicas: 2

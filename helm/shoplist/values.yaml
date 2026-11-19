@@ -1,0 +1,30 @@
+imagePullPolicy: Never
+
+backend:
+  replicas: 2
+  dbHost: postgres
+  image:
+    repository: shoplist-backend
+    tag: local
+
+stats:
+  replicas: 1
+  backendUrl: "http://backend:5000"
+  image:
+    repository: shoplist-stats
+    tag: local
+
+frontend:
+  replicas: 1
+  # 30080 is taken by the lesson 6 ShopList (namespace shoplist) on this cluster
+  nodePort: 30081
+  image:
+    repository: shoplist-frontend
+    tag: local
+
+postgres:
+  image: postgres:15-alpine
+  database: shoplist
+  user: shopuser
+  password: shoppass
+  storage: 1Gi
