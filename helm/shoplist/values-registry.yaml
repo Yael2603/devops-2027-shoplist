@@ -1,0 +1,18 @@
+# values-registry.yaml - images from GitHub Container Registry (built by the CI pipeline)
+
+imagePullPolicy: IfNotPresent   # a commit id never changes, so a local copy is safe
+
+backend:
+  image:
+    repository: ghcr.io/yael2603/shoplist-backend
+    tag: latest                 # only a fallback. Pass the commit id with --set
+
+stats:
+  image:
+    repository: ghcr.io/yael2603/shoplist-stats
+    tag: latest
+
+frontend:
+  image:
+    repository: ghcr.io/yael2603/shoplist-frontend
+    tag: latest
