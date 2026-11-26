@@ -1,0 +1,24 @@
+name: ShopList CI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v6
+
+      - name: Backend - Python syntax check
+        run: python3 -m py_compile app/backend/*.py
+
+      - name: Stats - Node syntax check
+        run: for f in app/stats/*.js; do node --check "$f"; done
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+
+      - name: Chart - helm lint
+        run: helm lint helm/shoplist
