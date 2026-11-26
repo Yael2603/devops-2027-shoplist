@@ -23,3 +23,5 @@ node_modules/
 # Offline pip packages (copied from the teacher USB)
 wheels/
 dist/
+app/backend/netfree-ca.crt
+app/backend/wheels/
