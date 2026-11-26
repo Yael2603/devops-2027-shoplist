@@ -29,7 +29,7 @@ def to_json(row):
 
 
 @app.route('/health')
-def health()
+def health():
     return jsonify({'status': 'ok'})
 
 
