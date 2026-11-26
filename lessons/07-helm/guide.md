@@ -8,6 +8,7 @@
 - בתיקייה `helm/shoplist/` בריפו: chart אחד, שמתאר את כל ShopList
 - ShopList שנייה רצה ב-cluster, ליד זו משיעור 6: אחת ב-`localhost:30080`, ואחת ב-`localhost:30081`
 - היסטוריה של גרסאות, וחזרה לגרסה קודמת בפקודה אחת
+- ב-chart: מקום מובטח ותקרה לכל container, וגיבוי לילי של מסד הנתונים
 
 **מה תדעו לעשות:**
 - להסביר מה זה chart, values ו-release, ולמה Helm קיים
@@ -15,6 +16,10 @@
 - לבדוק תבנית לפני התקנה, עם `helm lint` ו-`helm template`
 - להתקין, לעדכן, לחזור אחורה ולהסיר: `install`, `upgrade`, `rollback`, `uninstall`
 - להסביר מי מנצח כשאותו ערך מופיע בכמה מקומות
+- להסביר מה עושים requests ו-limits, ומה זה `OOMKilled`
+- להסביר מתי משתמשים ב-Job, ב-CronJob, ב-StatefulSet וב-HPA, ולמה לא ב-Deployment
+
+**איך השיעור עובד:** בשיעור אני מדגימה, ואתן עוקבות במדריך הזה. את הכל מתרגלות בבית, ב-[exercises.md](exercises.md). התרגולים לא מוגשים, אבל מכינים לשיעורי הבית.
 
 **עוד לא:** את ה-images אנחנו עדיין בונות ידנית, והפקודות מוקלדות ידנית. בשיעור 8 ה-pipeline יעשה את שניהם.
 
@@ -286,7 +291,7 @@ helm template shop ./helm/shoplist
 
 **`helm template` לא מתקין כלום.** הוא לא מדבר עם ה-cluster בכלל. אפשר להריץ אותו כמה פעמים שרוצים.
 
-### שלב 3 — החור הראשון: namespace (יחד)
+### שלב 3 — החור הראשון: namespace
 
 בכל 11 הקבצים, משנות את השורה:
 
@@ -310,7 +315,7 @@ helm template shop ./helm/shoplist -n shop-helm
 
 **צפוי:** בכל הקבצים, `namespace: shop-helm`. תריצו שוב עם `-n banana`. ה-chart לא השתנה, התוצאה כן.
 
-### שלב 4 — ה-backend: replicas ו-image (יחד)
+### שלב 4 — ה-backend: replicas ו-image
 
 **קודם הטופס.** `helm/shoplist/values.yaml`:
 
@@ -402,7 +407,9 @@ helm template shop ./helm/shoplist --show-only templates/backend-deployment.yml 
 
 **צפוי:** בפעם הראשונה `replicas: 1`, בשנייה `replicas: 3`. **`--set` דורס ערך מהטופס, רק לפקודה הזו.**
 
-### שלב 5 — עכשיו אתן: stats ו-frontend (תרגיל 1, 10 דקות)
+### שלב 5 — stats ו-frontend: אותה תבנית
+
+> **בבית:** זה תרגול 1 ב-[exercises.md](exercises.md). לנסות למלא לבד, לפני שפותחות את הפתרון.
 
 אותה תבנית בדיוק. מה שונה: ל-frontend יש עוד חור אחד, ה-`nodePort`.
 
@@ -494,7 +501,7 @@ spec:
 
 </details>
 
-### שלב 6 — postgres: הסיסמה, פעם אחת (יחד)
+### שלב 6 — postgres: הסיסמה, פעם אחת
 
 בשיעור 6 שם המשתמש הופיע בשני מקומות: ב-Secret (ב-base64), ובבדיקה `pg_isready`. משנים באחד ושוכחים את השני? postgres לא מוכן לנצח.
 
@@ -539,7 +546,7 @@ helm template shop ./helm/shoplist --show-only templates/postgres-secret.yml
 
 **צפוי:** `POSTGRES_PASSWORD: "c2hvcHBhc3M="`. בדיוק מה שכתבנו ביד בשיעור 6.
 
-### שלב 7 — הארונית: גודל, ופתק "לא לפנות" (יחד)
+### שלב 7 — הארונית: גודל, ופתק "לא לפנות"
 
 **`templates/postgres-pvc.yml`:**
 
@@ -895,44 +902,9 @@ helm install shop ./helm/shoplist -n shop-helm -f helm/shoplist/values-test.yaml
 
 > **ה-namespace עצמו** (`shop-helm`) נשאר אחרי `uninstall`. Helm לא מוחק namespace שנוצר עם `--create-namespace`.
 
-### שלב 14 — עכשיו אתן: מחזור חיים שלם (תרגיל 2, 15 דקות)
+### בבית: מחזור חיים שלם, לבד
 
-התקנה שלישית, לבד, מההתחלה ועד הסוף:
-
-1. `install` של release בשם `shop-demo`, ב-namespace `shop-demo`, בדלת **30082**
-2. לפתוח את `localhost:30082` ולהוסיף מוצר
-3. `upgrade` עם `stats.replicas=2`. **בלי לאבד את הדלת 30082** (רמז: קובץ)
-4. `helm history`: צריך לראות 2 revisions
-5. לשבור את ה-frontend: tag שלא קיים
-6. `rollback`. כמה revisions יש עכשיו?
-7. `uninstall`, ולבדוק שה-PVC נשאר
-
-<details>
-<summary>נתקעתן? הפקודות</summary>
-
-`helm/shoplist/values-demo.yaml`:
-
-```yaml
-frontend:
-  nodePort: 30082
-stats:
-  replicas: 2
-```
-
-```shell
-helm install shop-demo ./helm/shoplist -n shop-demo --create-namespace --set frontend.nodePort=30082
-helm upgrade shop-demo ./helm/shoplist -n shop-demo -f helm/shoplist/values-demo.yaml
-helm history shop-demo -n shop-demo
-helm upgrade shop-demo ./helm/shoplist -n shop-demo -f helm/shoplist/values-demo.yaml --set frontend.image.tag=oops
-helm rollback shop-demo -n shop-demo
-helm history shop-demo -n shop-demo
-helm uninstall shop-demo -n shop-demo
-kubectl get pvc -n shop-demo
-```
-
-אחרי ה-rollback: 4 revisions.
-
-</details>
+install, upgrade, לשבור, rollback ו-uninstall, על release שלישי בדלת 30082: תרגול 2 ב-[exercises.md](exercises.md).
 
 ---
 
@@ -999,6 +971,252 @@ helm upgrade --install shoplist ./helm/shoplist -n shoplist --create-namespace -
 
 ---
 
+## חלק 7 — משאבים מתקדמים ב-Kubernetes
+
+עד עכשיו השתמשנו ב-Deployment, Service, ConfigMap, Secret ו-PVC. יש עוד כמה משאבים שכל מי שעובדת עם Kubernetes פוגשת. את כולם מכניסות לאותו chart, כחורים חדשים ב-`values.yaml`.
+
+| משאב | מה הוא פותר | אנלוגיה |
+|---|---|---|
+| `resources` (requests ו-limits) | כמה CPU וזיכרון כל container מקבל | מקום שמור במטבח, ותקרה |
+| Job | משימה שרצה פעם אחת ונגמרת | הזמנה חד-פעמית: עוגת יום הולדת |
+| CronJob | Job שרץ לפי שעון | משימה ביומן המטבח: ספירת מלאי כל לילה |
+| StatefulSet | pods עם שם קבוע ודיסק משלהם, למסדי נתונים | מגשים ממוספרים, לכל מגש ארונית משלו |
+| HorizontalPodAutoscaler | מוסיף ומוריד pods לפי עומס | לפני חג: עוד מגשים כשההזמנות נערמות |
+
+### requests ו-limits: מקום שמור במטבח, ותקרה
+
+**הבעיה:** כל node הוא מטבח, ובכל מטבח הרבה מגשים (pods). בלי מידע, הסדרנית (ה-scheduler) לא יודעת כמה מקום כל מגש צריך. מגש אחד יכול לתפוס את כל הזיכרון של המטבח, ולהפיל את כל השכנים.
+
+**האנלוגיה: המטבח של הקונדיטוריה.**
+- **requests** = מקום שמור. המקום **מובטח** למגש. הסדרנית (ה-scheduler) שולחת מגש רק למטבח שנשאר בו מספיק מקום, לפי מה שכל המגשים שם כבר שמרו.
+- **limits** = התקרה. **CPU** הוא זמן תנור: מגש שרוצה יותר מהחלק שלו, מחכה בתור לתנור ומאט (throttling). **זיכרון** הוא מקום על השיש: מגש שמתפרס מעבר למקום שלו, נזרק. ה-container נהרג (`OOMKilled`), ו-Kubernetes מכין אותו מחדש.
+
+```yaml
+          resources:
+            requests:
+              cpu: 100m        # 100 millicores = עשירית ליבה
+              memory: 128Mi
+            limits:
+              cpu: 500m        # חצי ליבה
+              memory: 256Mi
+```
+
+| יחידה | פירוש |
+|---|---|
+| `1` או `1000m` | ליבת CPU אחת |
+| `100m` | עשירית ליבה (m = אלפית) |
+| `128Mi` | 128 מגה-בייט (Mi = 1024×1024) |
+| `1Gi` | גיגה-בייט אחד |
+
+**ב-chart:** לכל סרוויס מגירה `resources` ב-`values.yaml`, ובתבנית חורים:
+
+```yaml
+          resources:
+            requests:
+              cpu: {{ .Values.backend.resources.requests.cpu | quote }}
+              memory: {{ .Values.backend.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.backend.resources.limits.cpu | quote }}
+              memory: {{ .Values.backend.resources.limits.memory }}
+```
+
+> **למה `quote` על cpu?** כי `"1"` הוא טקסט, ו-`1` בלי מירכאות הוא מספר. Kubernetes מקבל את שניהם, אבל `quote` שומר שהתוצאה תמיד אחידה.
+
+**ההדגמה בשיעור: OOMKilled.** נותנות ל-backend תקרה קטנה מדי:
+
+```shell
+helm upgrade shop ./helm/shoplist -n shop-helm -f helm/shoplist/values-test.yaml --set backend.resources.limits.memory=20Mi
+kubectl get pods -n shop-helm -w
+kubectl describe pod -n shop-helm -l app=backend      # Last State: Terminated, Reason: OOMKilled
+helm rollback shop -n shop-helm
+```
+
+**צפוי:** pod חדש של backend ב-`OOMKilled` ואחר כך `CrashLoopBackOff`. הישנים ממשיכים לעבוד, בזכות readinessProbe. ו-rollback מחזיר את הכל. כל מה שלמדנו היום, ביחד.
+
+> **בעבודה:** limits לזיכרון תמיד. limits ל-CPU, תלוי בצוות: יש מי שמוותרות עליו, כדי לא להאט סתם. requests תמיד, כי בלעדיהם ה-scheduler מנחש.
+
+### Job ו-CronJob: משימה שנגמרת
+
+**הבעיה:** Deployment דואג שה-pod **תמיד** ירוץ. אם הוא מסתיים, Deployment מקים אותו שוב. אבל יש משימות שאמורות להיגמר: גיבוי, הסבת נתונים, שליחת דוח. אם נריץ אותן ב-Deployment, הן ירוצו שוב ושוב לנצח.
+
+| משאב | מתי רץ | מה קורה בסוף |
+|---|---|---|
+| Deployment | תמיד | ה-pod מסתיים? מקימים שוב |
+| **Job** | פעם אחת | ה-pod מסתיים בהצלחה, והעבודה גמורה. נכשל? מנסה שוב, עד `backoffLimit` |
+| **CronJob** | לפי שעון | בכל פעם שהשעה מגיעה, יוצר Job חדש |
+
+**האנלוגיה:** Deployment היא ההזמנה הקבועה משיעור 5: תמיד שלושה מגשים על הדלפק, נגמר מגש מכינים חדש. Job היא הזמנה חד-פעמית, כמו עוגת יום הולדת: אופים, מגישים, וההזמנה נסגרת. נשרפה? אופים שוב. CronJob היא משימה ביומן המטבח: "כל לילה ב-02:00, ספירת מלאי במקרר".
+
+**הזמנים של CronJob:** חמישה שדות, כמו ב-Linux:
+
+```
+"0 2 * * *"
+ │ │ │ │ └─ יום בשבוע (0 = ראשון)
+ │ │ │ └─── חודש
+ │ │ └───── יום בחודש
+ │ └─────── שעה
+ └───────── דקה
+```
+
+| ביטוי | מתי |
+|---|---|
+| `0 2 * * *` | כל לילה ב-02:00 |
+| `*/15 * * * *` | כל רבע שעה |
+| `0 9 * * 0` | כל יום ראשון ב-09:00 |
+
+> **שעון של מי?** של ה-cluster, ובדרך כלל זה UTC. 02:00 UTC הוא 04:00 או 05:00 בישראל.
+
+**ב-ShopList: גיבוי לילי של המוצרים.** CronJob שמריץ `pg_dump` ושומר את הקובץ בארונית נפרדת:
+
+```yaml
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  successfulJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:15-alpine
+              envFrom:
+                - secretRef:
+                    name: postgres-secret
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  FILE=/backup/shoplist-$(date +%Y%m%d-%H%M).sql
+                  PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h postgres -U "$POSTGRES_USER" "$POSTGRES_DB" > "$FILE"
+                  echo "backup saved: $FILE"
+                  ls -lh /backup
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: backup-pvc
+{{- end }}
+```
+
+שלושה דברים חדשים בקובץ:
+
+1. **`{{- if .Values.backup.enabled }}` ... `{{- end }}`:** חור מסוג חדש. **תנאי**. אם `backup.enabled` הוא `true`, הקובץ כולו נכנס. אם `false`, הוא לא קיים בכלל. כך כל התקנה בוחרת אם היא רוצה גיבוי. המקף ב-`{{-` מוחק את השורה הריקה שהתנאי משאיר.
+2. **`jobTemplate` בתוך `template`:** CronJob יוצר Job, וה-Job יוצר pod. שלוש קומות, כמו Deployment שיוצר ReplicaSet שיוצר pods.
+3. **`restartPolicy: OnFailure`:** ב-Deployment זה תמיד `Always`. ב-Job: אם נכשל, לנסות שוב. אם הצליח, לא לעשות כלום.
+
+וגם קובץ `backup-pvc.yml`: ארונית נפרדת לגיבויים, עם אותו `if` ואותו פתק `keep`.
+
+**ההדגמה בשיעור:** לא מחכים לשתיים בלילה. יוצרות Job מה-CronJob, עכשיו:
+
+```shell
+kubectl get cronjob -n shop-helm
+kubectl create job backup-now --from=cronjob/backup -n shop-helm
+kubectl get jobs,pods -n shop-helm
+kubectl logs job/backup-now -n shop-helm
+```
+
+**צפוי:** ה-pod עובר ל-`Completed`, ה-Job ל-`1/1`, ובלוג: `backup saved: /backup/shoplist-....sql`, ורשימת הקבצים בארונית.
+
+> **`Completed` זה טוב.** ב-Deployment, pod שנגמר הוא תקלה. ב-Job, זו המטרה.
+
+### StatefulSet: לכל pod שם וארונית משלו
+
+**הבעיה:** ב-Deployment, כל ה-pods זהים ואפשר להחליף אותם: `backend-7f9c...`, `backend-a2b1...`. שם אקראי, ואין להם דיסק משלהם. ל-backend זה מושלם. למסד נתונים עם כמה עותקים, לא: כל עותק צריך **את הנתונים שלו**, ושם קבוע שאפשר לפנות אליו ("הראשי הוא postgres-0").
+
+**האנלוגיה:** pods של Deployment הם מגשים זהים: כל מגש מחליף כל מגש. pods של StatefulSet הם מגשים ממוספרים: מגש 0, מגש 1, ולכל מגש ארונית משלו עם אותו מספר. מגש 1 נשרף? המגש החדש מקבל שוב את המספר 1, ואת ארונית 1 עם כל מה שבתוכה.
+
+| | Deployment | StatefulSet |
+|---|---|---|
+| שמות ה-pods | אקראיים: `backend-7f9c...` | קבועים, לפי מספר: `postgres-0`, `postgres-1` |
+| דיסק | ארונית אחת משותפת (או בלי) | ארונית **לכל pod**, מ-`volumeClaimTemplates` |
+| סדר עלייה | כולם בבת אחת | אחד אחרי השני: 0, ואז 1, ואז 2 |
+| pod שנמחק | חוזר עם שם חדש | חוזר עם **אותו שם ואותה ארונית** |
+| מתאים ל | backend, frontend, stats | מסדי נתונים, Kafka, Elasticsearch |
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres          # Service מיוחד, "headless", שנותן כתובת לכל pod
+  replicas: 1
+  ...
+  volumeClaimTemplates:          # במקום PVC אחד: טופס שממנו נוצר PVC לכל pod
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+```
+
+> **למה ב-ShopList נשארנו עם Deployment?** כי יש לנו postgres אחד, עם ארונית אחת. זה עובד. StatefulSet משתלם כשיש כמה עותקים של מסד נתונים. **ובעבודה:** לרוב לא כותבים StatefulSet למסד נתונים לבד. משתמשים ב-chart מוכן או ב-Operator, או במסד מנוהל של הענן (כמו RDS), כמו שראינו בשיעור 6.
+
+### HorizontalPodAutoscaler: עוד מגשים לפני חג
+
+**הבעיה:** `replicas: 3` זה מספר קבוע. בשתיים בלילה זה בזבוז. לפני חג, כשההזמנות נערמות, אולי לא מספיק.
+
+**האנלוגיה:** המטבח לפני חג. כשההזמנות נערמות, מוסיפים מגשים. כשנרגע, מורידים. HPA עושה את זה ל-pods: מודד את העומס כל כמה שניות, ומשנה את `replicas` של ה-Deployment לבד.
+
+```yaml
+{{- if .Values.backend.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+  namespace: {{ .Release.Namespace }}
+spec:
+  scaleTargetRef:                 # את מי מגדילים
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: {{ .Values.backend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.backend.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.backend.autoscaling.cpuPercent }}
+{{- end }}
+```
+
+**`averageUtilization: 70`:** אחוז **מה-requests**. אם requests הוא `100m`, ה-HPA מוסיף pods כשהממוצע עובר `70m`. **ולכן: בלי requests, אין HPA.** הנה למה requests חשוב.
+
+**HPA צריך מישהו שמודד:** `metrics-server`. בענן הוא כמעט תמיד מותקן. ב-Docker Desktop לא, ולכן ב-chart שלנו `autoscaling.enabled: false`. בלעדיו, `kubectl get hpa` מראה `<unknown>` במקום אחוזים.
+
+> **אל תערבבו:** אם יש HPA, הוא שולט ב-`replicas`. ה-`replicas` שכתוב ב-Deployment רק קובע את ההתחלה.
+
+### המפה: כל המשאבים של ShopList עכשיו
+
+| משאב | ב-ShopList | למה |
+|---|---|---|
+| Deployment | postgres, backend, stats, frontend | pods שתמיד רצים |
+| Service | ארבעה | כתובת קבועה |
+| Secret | `postgres-secret` | סיסמאות |
+| ConfigMap | `postgres-init` | `init.sql` |
+| PVC | `postgres-pvc`, `backup-pvc` | נתונים שנשארים |
+| resources | בכל container | מקום מובטח ותקרה |
+| CronJob | `backup` | גיבוי כל לילה |
+| HPA | `backend`, כבוי כברירת מחדל | הגדלה לפי עומס |
+| StatefulSet | לא בשימוש | מכירות, ויודעות למה לא כאן |
+
+---
+
 ## תקלות נפוצות
 
 | בעיה | סיבה | פתרון |
@@ -1014,6 +1232,11 @@ helm upgrade --install shoplist ./helm/shoplist -n shoplist --create-namespace -
 | release ב-`STATUS: failed` | ה-install או ה-upgrade נכשל באמצע | לתקן, ו-`helm upgrade` שוב. או `helm uninstall` ולהתחיל מחדש |
 | upgrade "החזיר" ערך ישן | ערך שהועבר ב-`--set` בפעם הקודמת, ולא הפעם | ערכים קבועים בקובץ `-f`, לא ב-`--set` |
 | `ErrImageNeverPull` | tag שלא קיים, או images לא נבנו | `docker images shoplist-*`. `helm rollback` |
+| `OOMKilled`, ואחר כך `CrashLoopBackOff` | ה-container עבר את תקרת הזיכרון (`limits.memory`) | להגדיל את ה-limit ב-values. `kubectl describe pod`: `Last State: OOMKilled` |
+| pod תקוע ב-`Pending`, ובאירועים `Insufficient cpu` או `Insufficient memory` | ה-requests גדולים ממה שיש ב-node | להקטין את ה-requests, או פחות replicas |
+| `kubectl get hpa` מראה `<unknown>/70%` | אין `metrics-server`, או שאין `requests.cpu` ל-container | תרגול 5 ב-[exercises.md](exercises.md). ולבדוק שיש `resources.requests.cpu` |
+| ה-CronJob לא רץ בשעה שציפיתן | השעון של ה-cluster הוא UTC | לחשב לפי UTC. ולבדיקה: `kubectl create job ... --from=cronjob/backup` |
+| pod של backup ב-`Error` | סיסמה, שם ה-Service או ה-PVC לא תואמים | `kubectl logs job/<שם>`. לבדוק את שלושת השמות: `postgres-secret`, `postgres`, `backup-pvc` |
 
 ---
 
@@ -1036,3 +1259,15 @@ Helm לוקח את ה-manifests של ה-revision הישן ומחיל אותם ש
 
 **6. איפה Helm שומר את ההיסטוריה?**
 בתוך ה-cluster, כ-Secrets באותו namespace של ה-release, בשם כמו `sh.helm.release.v1.<name>.v<revision>`. אין שרת נפרד.
+
+**7. מה ההבדל בין requests ל-limits?**
+requests הוא המינימום המובטח: ה-scheduler מציב pod רק ב-node שיש בו מספיק מקום לפי ה-requests. limits הוא התקרה: על CPU מעל התקרה, ה-container מואט. על זיכרון מעל התקרה, הוא נהרג (`OOMKilled`) ומופעל מחדש. ו-HPA מחשב אחוזים מתוך ה-requests.
+
+**8. מה ההבדל בין Deployment, Job ו-CronJob?**
+Deployment מחזיק pods שרצים תמיד, ומקים אותם מחדש אם הם נגמרים. Job מריץ משימה עד שהיא מסתיימת בהצלחה, ומנסה שוב אם נכשלה. CronJob יוצר Job לפי לוח זמנים, כמו cron ב-Linux. דוגמה: גיבוי לילי.
+
+**9. מתי StatefulSet ולא Deployment?**
+כשכל pod צריך זהות קבועה: שם קבוע (`postgres-0`), ארונית משלו (`volumeClaimTemplates`), ועלייה לפי הסדר. מתאים למסדי נתונים ולמערכות מבוזרות כמו Kafka. לאפליקציות בלי מצב, כמו backend, Deployment עדיף.
+
+**10. איך HPA מחליט כמה pods צריך?**
+הוא קורא מדדים מ-`metrics-server`, משווה את הממוצע ליעד (למשל 70% מה-requests של CPU), ומשנה את `replicas` של ה-Deployment, בין המינימום למקסימום. הוא מגדיל מהר, ומקטין לאט, כדי לא לקפוץ הלוך וחזור.

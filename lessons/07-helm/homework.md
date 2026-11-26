@@ -6,7 +6,7 @@
 
 **הגשה:** push מהבית, לפני שיעור 8.
 
-**זמן משוער:** שעתיים.
+**זמן משוער:** שעתיים וחצי. עשיתן קודם את [התרגולים](exercises.md)? פחות.
 
 **איך לעבוד:** הדרישות מסודרות לפי הסדר. כל דרישה נשענת על הקודמת. בכל דרישה כתוב **איך בודקות שזה עובד**. לא עוברות לדרישה הבאה לפני שהבדיקה עברה.
 
@@ -39,13 +39,14 @@ helm/
     values.yaml           ← ברירות המחדל
     values-big.yaml       ← ד5: טופס לסביבה "גדולה"
     templates/
-      (11 קבצים)
+      (13 קבצים: 11 משיעור 6, ועוד backup-pvc ו-backup-cronjob)
 lessons/07-helm/homework/
   answers.md
   screenshots/
     1-app.png
     2-history.png
     3-pvc.png
+    4-backup.png
 ```
 
 וב-cluster: release בשם `shop`, ב-namespace `shop`, שעובד ב-`http://localhost:30080`.
@@ -165,7 +166,27 @@ helm install shop ./helm/shoplist -n shop --create-namespace
 
 **צילום מסך 3:** הפלט של `kubectl get pvc -n shop` אחרי ה-uninstall.
 
-### ד8 — שאלות
+### ד8 — מקום מובטח, תקרה, וגיבוי
+
+**1. resources לכל ארבעת ה-Deployments.** בכל container: `requests` ו-`limits`, ל-cpu ולזיכרון. כל הערכים מ-`values.yaml`, בתוך המגירה של כל סרוויס. הערכים:
+
+| סרוויס | requests (cpu / memory) | limits (cpu / memory) |
+|---|---|---|
+| backend | `100m` / `128Mi` | `500m` / `256Mi` |
+| stats | `50m` / `64Mi` | `200m` / `128Mi` |
+| frontend | `50m` / `32Mi` | `200m` / `64Mi` |
+| postgres | `100m` / `256Mi` | `"1"` / `512Mi` |
+
+**2. גיבוי לילי.** שני קבצים חדשים ב-`templates/`: `backup-pvc.yml` ו-`backup-cronjob.yml` (מדריך, חלק 7). שניהם עטופים ב-`{{- if .Values.backup.enabled }}`. ב-`values.yaml`: מגירה `backup` עם `enabled`, `schedule` ו-`storage`.
+
+**בדיקה:**
+- `kubectl describe pod -n shop -l app=postgres`: יש `Limits` ו-`Requests`
+- `helm template shop ./helm/shoplist --set backup.enabled=false`: אין `CronJob` ואין `backup-pvc`
+- `kubectl create job backup-now --from=cronjob/backup -n shop`, ואז `kubectl logs job/backup-now -n shop`: `backup saved: ...`
+
+**צילום מסך 4:** הפלט של `kubectl logs job/backup-now -n shop`, ומתחתיו `kubectl get cronjob,jobs -n shop`.
+
+### ד9 — שאלות
 
 לענות ב-`lessons/07-helm/homework/answers.md`, במילים שלכן. שתיים-שלוש שורות לכל שאלה.
 
@@ -176,12 +197,14 @@ helm install shop ./helm/shoplist -n shop --create-namespace
 5. אחרי ה-rollback יש 4 revisions ולא 2. למה Helm לא פשוט חוזר ל-revision 2?
 6. מה היה קורה לשלושת המוצרים בד7 בלי השורה `helm.sh/resource-policy: keep`?
 7. חברה כתבה בטעות `{{ .Values.backend.replica }}`. Helm לא נתן שגיאה. מה כן קרה, ואיך היא הייתה מגלה?
+8. מה יקרה ל-postgres אם ישתמש ביותר מ-512Mi זיכרון? ומה יקרה אם ישתמש ביותר מליבה אחת של CPU? למה ההתנהגות שונה?
+9. למה הגיבוי הוא CronJob ולא Deployment? מה היה קורה אם הייתן כותבות אותו כ-Deployment?
 
-### בונוס ד9 — שתי ShopList בבית (+5)
+### בונוס ד10 — שתי ShopList בבית (+5)
 
 להתקין release שני מאותו chart, `shop2`, ב-namespace `shop2`, בדלת 30081. שתי האפליקציות פתוחות בדפדפן, וכל אחת עם מוצרים משלה. לצרף צילום מסך של `helm list -A`.
 
-### בונוס ד10 — סיסמה שחובה למלא (+5)
+### בונוס ד11 — סיסמה שחובה למלא (+5)
 
 ב-`values.yaml`, לשנות את הסיסמה ל-`password: ""`. ב-`postgres-secret.yml`, להשתמש בפונקציה `required`, כך שהתקנה בלי סיסמה תיכשל עם הודעה ברורה:
 
@@ -191,7 +214,7 @@ helm install shop ./helm/shoplist -n shop --create-namespace
 
 לבדוק ש-`helm template shop ./helm/shoplist` נכשל עם ההודעה, ושעם `--set postgres.password=shoppass` עובד. להסביר ב-`answers.md`: למה זה טוב יותר מסיסמה שכתובה ב-`values.yaml`?
 
-> **שימו לב:** אחרי בונוס ד10, כל `upgrade` של `shop` צריך `--set postgres.password=shoppass`. בלי זה הוא ייכשל, וזו בדיוק המטרה.
+> **שימו לב:** אחרי בונוס ד11, כל `upgrade` של `shop` צריך `--set postgres.password=shoppass`. בלי זה הוא ייכשל, וזו בדיוק המטרה.
 
 ---
 
@@ -206,19 +229,20 @@ git push
 **לפני ה-push, לבדוק:**
 - [ ] `helm lint ./helm/shoplist` עובר
 - [ ] `values.yaml` ו-`values-big.yaml` בתיקייה `helm/shoplist/`
-- [ ] `answers.md` ושלושה צילומי מסך ב-`lessons/07-helm/homework/`
+- [ ] `answers.md` וארבעה צילומי מסך ב-`lessons/07-helm/homework/`
 
 ### איך זה נבדק
 
 | מה | נקודות |
 |---|---|
-| ד2–ד3: ה-chart, וכל החורים מהטבלה | 35 |
-| ד4: ההתקנה עובדת | 15 |
+| ד2–ד3: ה-chart, וכל החורים מהטבלה | 30 |
+| ד4: ההתקנה עובדת | 10 |
 | ד5: `values-big.yaml` ו-upgrade | 10 |
-| ד6: לשבור וחזרה אחורה | 15 |
+| ד6: לשבור וחזרה אחורה | 10 |
 | ד7: uninstall, וה-PVC נשאר | 10 |
-| ד8: שאלות | 15 |
-| בונוס ד9, ד10 | +5 כל אחד |
+| ד8: resources וגיבוי | 15 |
+| ד9: שאלות | 15 |
+| בונוס ד10, ד11 | +5 כל אחד |
 
 ---
 
@@ -233,5 +257,8 @@ git push
 | `ErrImageNeverPull` כבר בד4 | ה-images לא נבנו בבית (ד1), או שם לא תואם |
 | `relation "products" does not exist` | נשארה ארונית ישנה בלי טבלה. `helm uninstall shop -n shop`, ואז `kubectl delete pvc postgres-pvc -n shop`, ואז `helm install` שוב (מוחק נתונים) |
 | release ב-`failed` | לתקן את הסיבה, ו-`helm upgrade` שוב |
+| `OOMKilled` | ה-limit של הזיכרון קטן מדי. לבדוק את הערכים מהטבלה בד8 |
+| pod של `backup-now` ב-`Error` | `kubectl logs job/backup-now -n shop`. לבדוק את השמות `postgres-secret`, `postgres`, `backup-pvc` |
+| `job.batch "backup-now" already exists` | כבר הרצתן. `kubectl delete job backup-now -n shop`, או שם אחר: `backup-now2` |
 
 את כל השאר: בטבלת התקלות במדריך.
