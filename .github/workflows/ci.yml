@@ -3,6 +3,11 @@ name: ShopList CI
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   test:
@@ -22,3 +27,35 @@ jobs:
 
       - name: Chart - helm lint
         run: helm lint helm/shoplist
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, stats, frontend]
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v6
+
+      - name: Image name and tag
+        run: |
+          echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+          echo "TAG=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Log in to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build
+        run: |
+          IMAGE="ghcr.io/$OWNER/shoplist-${{ matrix.service }}"
+          docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" "app/${{ matrix.service }}"
+
+      - name: Push
+        run: |
+          IMAGE="ghcr.io/$OWNER/shoplist-${{ matrix.service }}"
+          docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:latest"
+
+      - name: Summary
+        run: echo "Pushed ghcr.io/$OWNER/shoplist-${{ matrix.service }}:$TAG" >> "$GITHUB_STEP_SUMMARY"
